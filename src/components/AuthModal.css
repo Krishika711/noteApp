@@ -1,0 +1,148 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal {
+  background: #111;
+  border: 1px solid;
+  border-radius: 18px;
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+  position: relative;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.modal-close:hover { color: #fff; }
+
+.modal-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.modal-sub {
+  font-size: 0.85rem;
+  color: #777;
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.social-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.social-btn.full {
+  justify-content: center;
+}
+
+.modal-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  color: #444;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+}
+.modal-divider::before, .modal-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-input {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid;
+  border-radius: 9px;
+  padding: 13px 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  color: #eee;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  width: 100%;
+}
+.modal-input::placeholder { color: #555; }
+.modal-input:focus {
+  background: rgba(255,255,255,0.07);
+}
+
+.modal-submit {
+  border: none;
+  border-radius: 9px;
+  padding: 13px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 4px;
+}
+.modal-submit:hover { opacity: 0.85; transform: translateY(-1px); }
+
+.modal-switch {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.82rem;
+  color: #666;
+}
+.modal-switch button {
+  background: transparent;
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  text-decoration: underline;
+}
+.modal-switch button:hover { opacity: 0.75; }
