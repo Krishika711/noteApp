@@ -6,237 +6,217 @@ function hexToRgb(hex) {
   return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
 }
 
-// Brain silhouette outline — control points for the outer shell (side view, then we rotate)
-function generateBrainMesh() {
-  const rng = (seed) => {
-    let s = seed;
+// Generate brain shape nodes on surface of brain-like form
+function generateBrain() {
+  const rng = (() => {
+    let s = 12345;
     return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
-  };
-  const r = rng(777);
+  })();
 
-  // Brain shape: squished sphere with cerebellum bump
-  // Main cortex nodes — packed dense on surface of brain-shaped ellipsoid
   const nodes = [];
 
-  // Main brain — large oblate ellipsoid, slightly pointed front
-  for (let i = 0; i < 320; i++) {
-    let x, y, z, len;
-    // rejection sample inside ellipsoid
-    do {
-      x = (r() * 2 - 1);
-      y = (r() * 2 - 1);
-      z = (r() * 2 - 1);
-      len = Math.sqrt((x/1.4)**2 + (y/0.95)**2 + (z/1.1)**2);
-    } while (len > 1 || len < 0.55); // shell only — surface nodes
+  // MAIN CEREBRUM — large egg-shape, wider at back, narrower at front
+  for (let i = 0; i < 600; i++) {
+    let x, y, z;
+    // Sample on surface of scaled ellipsoid
+    const theta = rng() * Math.PI * 2;
+    const phi = Math.acos(2 * rng() - 1);
+    const st = Math.sin(phi), cp = Math.cos(phi), sp = Math.sin(phi);
+    x = Math.sin(phi) * Math.cos(theta);
+    y = Math.sin(phi) * Math.sin(theta);
+    z = Math.cos(phi);
 
-    // Scale to brain size
-    const sx = x * 130 + (z * 15); // slight forward taper
-    const sy = y * 90;
-    const sz = z * 105;
+    // Brain shape: wider sides, flatter top/bottom, front narrower
+    const frontTaper = 1 - Math.max(0, z) * 0.25; // narrow toward front (z+)
+    const sx = x * 200 * frontTaper + (rng()-0.5)*20;
+    const sy = y * 130 + (rng()-0.5)*20;
+    const sz = z * 170 + (rng()-0.5)*20;
 
-    // Add gyri-like wrinkle perturbation
-    const wrinkle = (r()-0.5)*18;
+    // Add wrinkle noise
+    const w = Math.sin(sx*0.08)*12 + Math.cos(sy*0.1)*10 + Math.sin(sz*0.07)*8;
     nodes.push({
-      x: sx + wrinkle * 0.4,
-      y: sy + wrinkle * 0.3,
-      z: sz + wrinkle * 0.2,
-      type: 'cortex',
-      size: 1.2 + r() * 1.8,
-      pulse: r() * Math.PI * 2,
+      x: sx + w * (rng()-0.5),
+      y: sy + w * (rng()-0.5) * 0.6,
+      z: sz + w * (rng()-0.5) * 0.4,
+      type: 0,
+      size: 1.5 + rng() * 2.5,
+      pulse: rng() * Math.PI * 2,
     });
   }
 
-  // Cerebellum — back bottom, smaller ellipsoid
-  for (let i = 0; i < 60; i++) {
-    let x, y, z, len;
-    do {
-      x = (r() * 2 - 1); y = (r() * 2 - 1); z = (r() * 2 - 1);
-      len = Math.sqrt((x/0.9)**2 + (y/0.65)**2 + (z/0.75)**2);
-    } while (len > 1 || len < 0.45);
+  // CEREBELLUM — bottom back, cauliflower bumps
+  for (let i = 0; i < 120; i++) {
+    const theta = rng() * Math.PI * 2;
+    const phi = Math.acos(2 * rng() - 1);
+    const sx = Math.sin(phi) * Math.cos(theta) * 100 + (rng()-0.5)*15;
+    const sy = Math.sin(phi) * Math.sin(theta) * 65 + 110;
+    const sz = Math.cos(phi) * 80 - 80 + (rng()-0.5)*15;
+    nodes.push({ x: sx, y: sy, z: sz, type: 1, size: 1.2 + rng()*2, pulse: rng()*Math.PI*2 });
+  }
+
+  // BRAIN STEM — cylindrical, hanging below
+  for (let i = 0; i < 40; i++) {
+    const t = rng();
+    const angle = rng() * Math.PI * 2;
     nodes.push({
-      x: x * 70 + (r()-0.5)*12,
-      y: y * 52 + 65,
-      z: z * 60 - 65,
-      type: 'cerebellum',
-      size: 1.0 + r() * 1.5,
-      pulse: r() * Math.PI * 2,
+      x: Math.cos(angle) * (18 - t*8) + (rng()-0.5)*8,
+      y: 100 + t * 140,
+      z: -30 + (rng()-0.5)*20,
+      type: 2, size: 1.0 + rng()*1.5, pulse: rng()*Math.PI*2,
     });
   }
 
-  // Brain stem
-  for (let i = 0; i < 25; i++) {
-    const t = r();
-    nodes.push({
-      x: (r()-0.5) * 28,
-      y: 55 + t * 70,
-      z: -20 + (r()-0.5) * 20,
-      type: 'stem',
-      size: 1.0 + r() * 1.2,
-      pulse: r() * Math.PI * 2,
-    });
-  }
-
-  // Build mesh connections — nearby nodes only
+  // Build connections — mesh between nearby surface nodes
   const connections = [];
-  const maxDist = { cortex: 52, cerebellum: 48, stem: 38 };
+  const limits = [70, 58, 45];
   for (let i = 0; i < nodes.length; i++) {
-    let connCount = 0;
-    for (let j = i+1; j < nodes.length && connCount < 5; j++) {
-      const dx = nodes[i].x - nodes[j].x;
-      const dy = nodes[i].y - nodes[j].y;
-      const dz = nodes[i].z - nodes[j].z;
-      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
-      const limit = maxDist[nodes[i].type] || 50;
-      if (d < limit) {
-        connections.push([i, j, d]);
-        connCount++;
-      }
+    let c = 0;
+    for (let j = i+1; j < nodes.length && c < 6; j++) {
+      if (nodes[i].type !== nodes[j].type && nodes[j].type !== 2) continue;
+      const dx = nodes[i].x-nodes[j].x, dy = nodes[i].y-nodes[j].y, dz = nodes[i].z-nodes[j].z;
+      const d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+      if (d < limits[nodes[i].type]) { connections.push([i,j,d]); c++; }
+    }
+  }
+  // Also connect cerebellum to main
+  for (let i = 0; i < nodes.length; i++) {
+    if (nodes[i].type !== 1) continue;
+    for (let j = 0; j < nodes.length; j++) {
+      if (nodes[j].type !== 0) continue;
+      const dx = nodes[i].x-nodes[j].x, dy = nodes[i].y-nodes[j].y, dz = nodes[i].z-nodes[j].z;
+      const d = Math.sqrt(dx*dx+dy*dy+dz*dz);
+      if (d < 55) { connections.push([i,j,d]); break; }
     }
   }
 
   return { nodes, connections };
 }
 
-const { nodes: NODES, connections: CONNECTIONS } = generateBrainMesh();
+const { nodes: NODES, connections: CONNECTIONS } = generateBrain();
 
 export default function AboutSection({ theme }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
-  const mouseRef = useRef({ x: 0, y: 0, over: false });
-  const rotRef = useRef({ y: 0.3, x: 0.12 });
-  const targetRotRef = useRef({ y: 0.3, x: 0.12 });
+  const mouseRef = useRef({ x: 512, y: 512, over: false });
+  const rotRef = useRef({ y: 0.2, x: 0.1 });
+  const targetRotRef = useRef({ y: 0.2, x: 0.1 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const SIZE = 1024;
+    canvas.width = SIZE; canvas.height = SIZE;
     const ctx = canvas.getContext("2d");
-    const W = 520, H = 520;
-    canvas.width = W; canvas.height = H;
-    const cx = W / 2, cy = H / 2 + 10;
-
-    const [r, g, b] = hexToRgb(theme.accent);
+    const cx = SIZE/2, cy = SIZE/2 - 20;
+    const [r,g,b] = hexToRgb(theme.accent);
 
     const onMove = (e) => {
       const rect = canvas.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) * (W / rect.width);
-      const my = (e.clientY - rect.top) * (H / rect.height);
+      const mx = (e.clientX - rect.left) * (SIZE / rect.width);
+      const my = (e.clientY - rect.top) * (SIZE / rect.height);
       mouseRef.current = { x: mx, y: my, over: true };
-      // Target rotation follows cursor
-      targetRotRef.current.y = 0.3 + ((mx - cx) / cx) * 0.7;
-      targetRotRef.current.x = 0.12 + ((my - cy) / cy) * 0.35;
+      targetRotRef.current.y = 0.2 + ((mx - cx) / cx) * 0.9;
+      targetRotRef.current.x = 0.1 + ((my - cy) / cy) * 0.4;
     };
     const onLeave = () => {
       mouseRef.current.over = false;
-      targetRotRef.current.y = 0.3;
-      targetRotRef.current.x = 0.12;
+      targetRotRef.current.x = 0.1;
     };
-
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
 
-    const project = (node, ry, rx) => {
-      const cosY = Math.cos(ry), sinY = Math.sin(ry);
-      const px0 = node.x * cosY - node.z * sinY;
-      const pz0 = node.x * sinY + node.z * cosY;
-      const cosX = Math.cos(rx), sinX = Math.sin(rx);
-      const py1 = node.y * cosX - pz0 * sinX;
-      const pz1 = node.y * sinX + pz0 * cosX;
-      const fov = 500;
-      const s = fov / (fov + pz1 + 80);
-      return { px: cx + px0 * s, py: cy + py1 * s, s, depth: pz1 };
+    const project = (n, ry, rx) => {
+      const cy2 = Math.cos(ry), sy2 = Math.sin(ry);
+      const px0 = n.x*cy2 - n.z*sy2;
+      const pz0 = n.x*sy2 + n.z*cy2;
+      const cx2 = Math.cos(rx), sx2 = Math.sin(rx);
+      const py1 = n.y*cx2 - pz0*sx2;
+      const pz1 = n.y*sx2 + pz0*cx2;
+      const fov = 900;
+      const s = fov/(fov+pz1+100);
+      return { px: cx+px0*s, py: cy+py1*s, s, depth: pz1 };
     };
 
     const draw = (t) => {
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0,0,SIZE,SIZE);
       const rot = rotRef.current;
-      const target = targetRotRef.current;
+      const tgt = targetRotRef.current;
 
-      // Smooth lerp toward target (auto-rotate when not hovering)
-      if (!mouseRef.current.over) {
-        target.y += 0.004;
-      }
-      rot.y += (target.y - rot.y) * 0.04;
-      rot.x += (target.x - rot.x) * 0.04;
+      if (!mouseRef.current.over) tgt.y += 0.003;
+      rot.y += (tgt.y - rot.y) * 0.05;
+      rot.x += (tgt.x - rot.x) * 0.05;
 
-      // Project all nodes
-      const proj = NODES.map((n, i) => {
+      const proj = NODES.map((n,i) => {
         const p = project(n, rot.y, rot.x);
-        const pulse = 0.7 + Math.sin(t * 1.5 + n.pulse) * 0.3;
+        const pulse = 0.65 + Math.sin(t*1.4 + n.pulse)*0.35;
         return { ...p, n, pulse, i };
       });
 
-      // Sort connections back to front
-      const sortedConns = [...CONNECTIONS].sort((a, b) => {
-        const da = (proj[a[0]].depth + proj[a[1]].depth) / 2;
-        const db = (proj[b[0]].depth + proj[b[1]].depth) / 2;
-        return da - db;
-      });
+      // Connections — sorted back to front
+      [...CONNECTIONS]
+        .sort((a,b) => ((proj[a[0]].depth+proj[a[1]].depth)/2) - ((proj[b[0]].depth+proj[b[1]].depth)/2))
+        .forEach(([i,j]) => {
+          const pi = proj[i], pj = proj[j];
+          const avgD = (pi.depth+pj.depth)/2;
+          const fade = Math.max(0,(300-Math.abs(avgD))/300);
+          const alpha = fade * 0.5 * Math.min(pi.s, pj.s) * 1.4;
+          const grad = ctx.createLinearGradient(pi.px,pi.py,pj.px,pj.py);
+          grad.addColorStop(0, `rgba(${r},${g},${b},${Math.min(0.85,alpha*pi.pulse)})`);
+          grad.addColorStop(1, `rgba(${r},${g},${b},${Math.min(0.85,alpha*pj.pulse)})`);
+          ctx.beginPath(); ctx.moveTo(pi.px,pi.py); ctx.lineTo(pj.px,pj.py);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 0.6 + fade*0.5;
+          ctx.stroke();
+        });
 
-      // Draw connections
-      sortedConns.forEach(([i, j, dist]) => {
-        const pi = proj[i], pj = proj[j];
-        const avgDepth = (pi.depth + pj.depth) / 2;
-        const depthFade = Math.max(0, (200 - Math.abs(avgDepth)) / 200);
-        const alpha = depthFade * 0.45 * ((pi.pulse + pj.pulse) / 2) * Math.min(pi.s, pj.s);
+      // Nodes — sorted back to front
+      [...proj]
+        .sort((a,b)=>a.depth-b.depth)
+        .forEach(p => {
+          const fade = Math.max(0.1,(280-Math.abs(p.depth))/280);
+          const alpha = Math.min(1, fade * p.pulse * p.s * 1.5);
+          const sz = p.n.size * p.s * 2.2 * (0.8+p.pulse*0.2);
 
-        ctx.beginPath();
-        ctx.moveTo(pi.px, pi.py);
-        ctx.lineTo(pj.px, pj.py);
-        const grad = ctx.createLinearGradient(pi.px, pi.py, pj.px, pj.py);
-        grad.addColorStop(0, `rgba(${r},${g},${b},${Math.min(0.7, alpha * 1.2)})`);
-        grad.addColorStop(1, `rgba(${r},${g},${b},${Math.min(0.7, alpha * 0.8)})`);
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 0.5 + depthFade * 0.4;
-        ctx.stroke();
-      });
+          // Big glow
+          const grd = ctx.createRadialGradient(p.px,p.py,0,p.px,p.py,sz*5);
+          grd.addColorStop(0,`rgba(${r},${g},${b},${Math.min(0.7,alpha*0.55)})`);
+          grd.addColorStop(0.3,`rgba(${r},${g},${b},${Math.min(0.3,alpha*0.15)})`);
+          grd.addColorStop(1,`rgba(${r},${g},${b},0)`);
+          ctx.beginPath(); ctx.arc(p.px,p.py,sz*5,0,Math.PI*2);
+          ctx.fillStyle=grd; ctx.fill();
 
-      // Draw nodes — sorted back to front
-      [...proj].sort((a, b) => a.depth - b.depth).forEach(p => {
-        const depthFade = Math.max(0.1, (200 - Math.abs(p.depth)) / 200);
-        const alpha = depthFade * p.pulse * Math.min(1, p.s * 1.3);
-        const sz = p.n.size * p.s * 1.8 * (0.8 + p.pulse * 0.2);
+          // Core
+          ctx.beginPath(); ctx.arc(p.px,p.py,sz,0,Math.PI*2);
+          ctx.fillStyle=`rgba(${r},${g},${b},${Math.min(1,alpha)})`;
+          ctx.fill();
 
-        // Outer glow
-        const grd = ctx.createRadialGradient(p.px, p.py, 0, p.px, p.py, sz * 4);
-        grd.addColorStop(0, `rgba(${r},${g},${b},${Math.min(0.8, alpha * 0.7)})`);
-        grd.addColorStop(0.35, `rgba(${r},${g},${b},${Math.min(0.4, alpha * 0.25)})`);
-        grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx.beginPath(); ctx.arc(p.px, p.py, sz * 4, 0, Math.PI * 2);
-        ctx.fillStyle = grd; ctx.fill();
+          // Specular
+          ctx.beginPath(); ctx.arc(p.px-sz*0.35,p.py-sz*0.35,sz*0.38,0,Math.PI*2);
+          ctx.fillStyle=`rgba(255,255,255,${Math.min(0.8,alpha*0.55)})`;
+          ctx.fill();
+        });
 
-        // Core node
-        ctx.beginPath(); ctx.arc(p.px, p.py, sz, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${r},${g},${b},${Math.min(1, alpha)})`;
-        ctx.fill();
+      // Big ambient glow in center
+      const atmo = ctx.createRadialGradient(cx,cy,80,cx,cy,420);
+      atmo.addColorStop(0,`rgba(${r},${g},${b},0.07)`);
+      atmo.addColorStop(0.5,`rgba(${r},${g},${b},0.02)`);
+      atmo.addColorStop(1,`rgba(${r},${g},${b},0)`);
+      ctx.beginPath(); ctx.arc(cx,cy,420,0,Math.PI*2);
+      ctx.fillStyle=atmo; ctx.fill();
 
-        // Specular highlight
-        ctx.beginPath(); ctx.arc(p.px - sz * 0.3, p.py - sz * 0.3, sz * 0.3, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${Math.min(0.7, alpha * 0.6)})`;
-        ctx.fill();
-      });
-
-      // Overall ambient glow
-      const atmo = ctx.createRadialGradient(cx, cy, 60, cx, cy, 230);
-      atmo.addColorStop(0, `rgba(${r},${g},${b},0.06)`);
-      atmo.addColorStop(0.5, `rgba(${r},${g},${b},0.02)`);
-      atmo.addColorStop(1, `rgba(${r},${g},${b},0)`);
-      ctx.beginPath(); ctx.arc(cx, cy, 230, 0, Math.PI * 2);
-      ctx.fillStyle = atmo; ctx.fill();
-
-      // Cursor proximity glow
+      // Cursor glow
       if (mouseRef.current.over) {
-        const mx = mouseRef.current.x, my = mouseRef.current.y;
-        const glow = ctx.createRadialGradient(mx, my, 0, mx, my, 80);
-        glow.addColorStop(0, `rgba(${r},${g},${b},0.12)`);
-        glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx.beginPath(); ctx.arc(mx, my, 80, 0, Math.PI * 2);
-        ctx.fillStyle = glow; ctx.fill();
+        const {x:mx,y:my} = mouseRef.current;
+        const cg = ctx.createRadialGradient(mx,my,0,mx,my,120);
+        cg.addColorStop(0,`rgba(${r},${g},${b},0.18)`);
+        cg.addColorStop(1,`rgba(${r},${g},${b},0)`);
+        ctx.beginPath(); ctx.arc(mx,my,120,0,Math.PI*2);
+        ctx.fillStyle=cg; ctx.fill();
       }
     };
 
-    const loop = (ts) => { draw(ts / 1000); animRef.current = requestAnimationFrame(loop); };
+    const loop = (ts) => { draw(ts/1000); animRef.current = requestAnimationFrame(loop); };
     animRef.current = requestAnimationFrame(loop);
-
     return () => {
       cancelAnimationFrame(animRef.current);
       canvas.removeEventListener("mousemove", onMove);
@@ -274,11 +254,10 @@ export default function AboutSection({ theme }) {
           </div>
         </div>
       </div>
-
       <div className="about-right">
         <div className="brain-wrap">
           <canvas ref={canvasRef} className="brain-canvas" />
-          <p className="brain-hint">move cursor over brain to interact</p>
+          <p className="brain-hint">move cursor to rotate</p>
         </div>
       </div>
     </section>
