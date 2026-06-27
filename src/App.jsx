@@ -4,90 +4,103 @@ import AboutSection from "./components/AboutSection";
 import AuthModal from "./components/AuthModal";
 import "./App.css";
 
-const moodThemes = {
+export const moodThemes = {
   sunny: {
-    bg: "linear-gradient(135deg, #1a1200 0%, #2d1f00 40%, #1a1200 100%)",
-    accent: "#FFD700",
-    accentSoft: "#FFF176",
-    particleColor: "#FFD700",
-    overlay: "rgba(255, 200, 0, 0.07)",
+    bg: "#0a0800",
+    bgGradient: "radial-gradient(ellipse at 20% 50%, #2a1800 0%, #0a0800 60%)",
+    accent: "#F5A623",
+    accentSoft: "#FFD580",
+    glow: "rgba(245,166,35,0.15)",
+    overlay: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3CradialGradient id='sun' cx='75%25' cy='30%25' r='40%25'%3E%3Cstop offset='0%25' stop-color='%23F5A623' stop-opacity='0.18'/%3E%3Cstop offset='100%25' stop-color='%23F5A623' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23sun)'/%3E%3C/svg%3E")`,
     name: "Sunny",
     emoji: "☀️",
+    particles: "rays",
   },
   rainy: {
-    bg: "linear-gradient(135deg, #050d1a 0%, #0a1628 40%, #050d1a 100%)",
-    accent: "#4FC3F7",
-    accentSoft: "#B3E5FC",
-    particleColor: "#4FC3F7",
-    overlay: "rgba(79, 195, 247, 0.06)",
+    bg: "#02080f",
+    bgGradient: "radial-gradient(ellipse at 50% 0%, #051525 0%, #02080f 70%)",
+    accent: "#38BDF8",
+    accentSoft: "#7DD3FC",
+    glow: "rgba(56,189,248,0.12)",
+    overlay: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3ClinearGradient id='rain' x1='0%25' y1='0%25' x2='5%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2338BDF8' stop-opacity='0.06'/%3E%3Cstop offset='100%25' stop-color='%2338BDF8' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23rain)'/%3E%3C/svg%3E")`,
     name: "Rainy",
     emoji: "🌧️",
+    particles: "drops",
   },
   stormy: {
-    bg: "linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 40%, #0a0a0a 100%)",
-    accent: "#CE93D8",
-    accentSoft: "#E1BEE7",
-    particleColor: "#CE93D8",
-    overlay: "rgba(206, 147, 216, 0.06)",
+    bg: "#05020f",
+    bgGradient: "radial-gradient(ellipse at 80% 20%, #150830 0%, #05020f 70%)",
+    accent: "#A78BFA",
+    accentSoft: "#C4B5FD",
+    glow: "rgba(167,139,250,0.15)",
+    overlay: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3CradialGradient id='storm' cx='60%25' cy='20%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%23A78BFA' stop-opacity='0.12'/%3E%3Cstop offset='100%25' stop-color='%23A78BFA' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23storm)'/%3E%3C/svg%3E")`,
     name: "Stormy",
     emoji: "⛈️",
+    particles: "lightning",
   },
   cloudy: {
-    bg: "linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 40%, #0d0d0d 100%)",
-    accent: "#B0BEC5",
-    accentSoft: "#ECEFF1",
-    particleColor: "#B0BEC5",
-    overlay: "rgba(176, 190, 197, 0.05)",
+    bg: "#080808",
+    bgGradient: "radial-gradient(ellipse at 30% 40%, #141414 0%, #080808 70%)",
+    accent: "#94A3B8",
+    accentSoft: "#CBD5E1",
+    glow: "rgba(148,163,184,0.1)",
+    overlay: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3CradialGradient id='cloud' cx='50%25' cy='30%25' r='60%25'%3E%3Cstop offset='0%25' stop-color='%2394A3B8' stop-opacity='0.08'/%3E%3Cstop offset='100%25' stop-color='%2394A3B8' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23cloud)'/%3E%3C/svg%3E")`,
     name: "Cloudy",
     emoji: "☁️",
+    particles: "float",
   },
   foggy: {
-    bg: "linear-gradient(135deg, #0d1a0d 0%, #1a2e1a 40%, #0d1a0d 100%)",
-    accent: "#A5D6A7",
-    accentSoft: "#C8E6C9",
-    particleColor: "#A5D6A7",
-    overlay: "rgba(165, 214, 167, 0.05)",
+    bg: "#030a03",
+    bgGradient: "radial-gradient(ellipse at 50% 60%, #0a150a 0%, #030a03 70%)",
+    accent: "#6EE7B7",
+    accentSoft: "#A7F3D0",
+    glow: "rgba(110,231,183,0.12)",
+    overlay: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'%3E%3Cdefs%3E%3ClinearGradient id='fog' x1='0%25' y1='40%25' x2='100%25' y2='60%25'%3E%3Cstop offset='0%25' stop-color='%236EE7B7' stop-opacity='0.08'/%3E%3Cstop offset='50%25' stop-color='%236EE7B7' stop-opacity='0.04'/%3E%3Cstop offset='100%25' stop-color='%236EE7B7' stop-opacity='0.08'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23fog)'/%3E%3C/svg%3E")`,
     name: "Foggy",
     emoji: "🌫️",
+    particles: "mist",
   },
+};
+
+const defaultTheme = {
+  bg: "#080600",
+  bgGradient: "radial-gradient(ellipse at 30% 50%, #1a1200 0%, #080600 70%)",
+  accent: "#C9A84C",
+  accentSoft: "#FFE082",
+  glow: "rgba(201,168,76,0.1)",
+  overlay: "",
+  name: null,
+  emoji: null,
 };
 
 export default function App() {
   const [mood, setMood] = useState(null);
-  const [authModal, setAuthModal] = useState(null); // null | 'signin' | 'create'
-  const [theme, setTheme] = useState({
-    bg: "linear-gradient(135deg, #0a0a0a 0%, #1a1200 40%, #0a0a0a 100%)",
-    accent: "#C9A84C",
-    accentSoft: "#FFE082",
-    particleColor: "#C9A84C",
-    overlay: "rgba(201, 168, 76, 0.05)",
-    name: null,
-    emoji: null,
-  });
+  const [authModal, setAuthModal] = useState(null);
+  const [theme, setTheme] = useState(defaultTheme);
 
   useEffect(() => {
-    if (mood && moodThemes[mood]) {
-      setTheme(moodThemes[mood]);
-    }
+    setTheme(mood && moodThemes[mood] ? moodThemes[mood] : defaultTheme);
   }, [mood]);
 
   return (
-    <div className="app" style={{ background: theme.bg, transition: "background 1.2s ease" }}>
-      <div className="overlay" style={{ background: theme.overlay, transition: "background 1.2s ease" }} />
+    <div className="app" style={{ background: theme.bgGradient, backgroundColor: theme.bg }}>
+      {theme.overlay && (
+        <div className="theme-overlay" style={{ backgroundImage: theme.overlay }} />
+      )}
+      <div className="glow-orb" style={{ background: theme.glow }} />
 
       <nav className="nav">
         <div className="nav-logo">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
             <path d="M14 3C14 3 7 8 7 14C7 18.4 10.1 22 14 22C17.9 22 21 18.4 21 14C21 8 14 3 14 3Z" stroke={theme.accent} strokeWidth="1.5" fill="none"/>
             <path d="M14 22V25M10 25H18" stroke={theme.accent} strokeWidth="1.5" strokeLinecap="round"/>
-            <circle cx="14" cy="14" r="3" fill={theme.accent} opacity="0.3"/>
-            <path d="M9 11C9 11 8 13 9 15M19 11C19 11 20 13 19 15" stroke={theme.accent} strokeWidth="1.2" strokeLinecap="round"/>
+            <circle cx="14" cy="14" r="3" fill={theme.accent} opacity="0.4"/>
           </svg>
           <span style={{ color: theme.accent }}>MindBridge+</span>
         </div>
         <div className="nav-actions">
           <button className="nav-btn-ghost" onClick={() => setAuthModal("signin")}>Sign In</button>
-          <button className="nav-btn-primary" style={{ background: theme.accent, color: "#0a0a0a" }} onClick={() => setAuthModal("signin")}>Get Access</button>
+          <button className="nav-btn-primary" style={{ background: theme.accent, color: "#000" }} onClick={() => setAuthModal("signin")}>Get Access</button>
         </div>
       </nav>
 
