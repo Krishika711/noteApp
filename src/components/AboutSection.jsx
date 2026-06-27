@@ -1,243 +1,246 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import "./AboutSection.css";
-
-// Brain lobe regions — actual neuroanatomy-inspired positions
-const LOBES = [
-  // Frontal lobe (front top)
-  { cx:0,   cy:-60, cz: 60, rx:55, ry:50, rz:45, count:38, name:"Frontal" },
-  // Parietal lobe (top back)
-  { cx:0,   cy:-55, cz:-20, rx:50, ry:45, rz:40, count:30, name:"Parietal" },
-  // Temporal lobe left
-  { cx:-70, cy: 20, cz: 10, rx:35, ry:30, rz:50, count:22, name:"Temporal L" },
-  // Temporal lobe right
-  { cx: 70, cy: 20, cz: 10, rx:35, ry:30, rz:50, count:22, name:"Temporal R" },
-  // Occipital lobe (back)
-  { cx:0,   cy:-20, cz:-80, rx:40, ry:35, rz:35, count:18, name:"Occipital" },
-  // Cerebellum (bottom back)
-  { cx:0,   cy: 60, cz:-50, rx:45, ry:30, rz:35, count:20, name:"Cerebellum" },
-  // Brain stem
-  { cx:0,   cy: 80, cz: 0,  rx:15, ry:40, rz:15, count:10, name:"Stem" },
-];
-
-function buildBrain() {
-  const rng = (seed) => {
-    let s = seed;
-    return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
-  };
-
-  const nodes = [];
-  let idx = 0;
-  LOBES.forEach((lobe, li) => {
-    const r = rng(li * 999 + 42);
-    for (let i = 0; i < lobe.count; i++) {
-      // Ellipsoid distribution inside each lobe
-      const u = r() * 2 - 1, v = r() * 2 - 1, w = r() * 2 - 1;
-      const len = Math.sqrt(u*u + v*v + w*w) || 1;
-      const t = Math.cbrt(r()); // volume-uniform
-      nodes.push({
-        x: lobe.cx + (u/len) * t * lobe.rx + (r()-0.5)*8,
-        y: lobe.cy + (v/len) * t * lobe.ry + (r()-0.5)*8,
-        z: lobe.cz + (w/len) * t * lobe.rz + (r()-0.5)*8,
-        lobe: li,
-        size: 1.5 + r() * 2.5,
-        pulse: r() * Math.PI * 2,
-        idx: idx++,
-      });
-    }
-  });
-
-  // Connect: same-lobe close + cross-lobe bridges
-  const connections = [];
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i+1; j < nodes.length; j++) {
-      const dx = nodes[i].x - nodes[j].x;
-      const dy = nodes[i].y - nodes[j].y;
-      const dz = nodes[i].z - nodes[j].z;
-      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
-      const sameLobe = nodes[i].lobe === nodes[j].lobe;
-      if ((sameLobe && d < 45) || (!sameLobe && d < 35 && connections.length < 400)) {
-        connections.push({ i, j, d, sameLobe });
-      }
-    }
-  }
-  return { nodes, connections };
-}
-
-const { nodes: NODES, connections: CONNECTIONS } = buildBrain();
 
 function hexToRgb(hex) {
   const h = hex.replace("#", "");
   return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
 }
 
+// Brain silhouette outline — control points for the outer shell (side view, then we rotate)
+function generateBrainMesh() {
+  const rng = (seed) => {
+    let s = seed;
+    return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+  };
+  const r = rng(777);
+
+  // Brain shape: squished sphere with cerebellum bump
+  // Main cortex nodes — packed dense on surface of brain-shaped ellipsoid
+  const nodes = [];
+
+  // Main brain — large oblate ellipsoid, slightly pointed front
+  for (let i = 0; i < 320; i++) {
+    let x, y, z, len;
+    // rejection sample inside ellipsoid
+    do {
+      x = (r() * 2 - 1);
+      y = (r() * 2 - 1);
+      z = (r() * 2 - 1);
+      len = Math.sqrt((x/1.4)**2 + (y/0.95)**2 + (z/1.1)**2);
+    } while (len > 1 || len < 0.55); // shell only — surface nodes
+
+    // Scale to brain size
+    const sx = x * 130 + (z * 15); // slight forward taper
+    const sy = y * 90;
+    const sz = z * 105;
+
+    // Add gyri-like wrinkle perturbation
+    const wrinkle = (r()-0.5)*18;
+    nodes.push({
+      x: sx + wrinkle * 0.4,
+      y: sy + wrinkle * 0.3,
+      z: sz + wrinkle * 0.2,
+      type: 'cortex',
+      size: 1.2 + r() * 1.8,
+      pulse: r() * Math.PI * 2,
+    });
+  }
+
+  // Cerebellum — back bottom, smaller ellipsoid
+  for (let i = 0; i < 60; i++) {
+    let x, y, z, len;
+    do {
+      x = (r() * 2 - 1); y = (r() * 2 - 1); z = (r() * 2 - 1);
+      len = Math.sqrt((x/0.9)**2 + (y/0.65)**2 + (z/0.75)**2);
+    } while (len > 1 || len < 0.45);
+    nodes.push({
+      x: x * 70 + (r()-0.5)*12,
+      y: y * 52 + 65,
+      z: z * 60 - 65,
+      type: 'cerebellum',
+      size: 1.0 + r() * 1.5,
+      pulse: r() * Math.PI * 2,
+    });
+  }
+
+  // Brain stem
+  for (let i = 0; i < 25; i++) {
+    const t = r();
+    nodes.push({
+      x: (r()-0.5) * 28,
+      y: 55 + t * 70,
+      z: -20 + (r()-0.5) * 20,
+      type: 'stem',
+      size: 1.0 + r() * 1.2,
+      pulse: r() * Math.PI * 2,
+    });
+  }
+
+  // Build mesh connections — nearby nodes only
+  const connections = [];
+  const maxDist = { cortex: 52, cerebellum: 48, stem: 38 };
+  for (let i = 0; i < nodes.length; i++) {
+    let connCount = 0;
+    for (let j = i+1; j < nodes.length && connCount < 5; j++) {
+      const dx = nodes[i].x - nodes[j].x;
+      const dy = nodes[i].y - nodes[j].y;
+      const dz = nodes[i].z - nodes[j].z;
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const limit = maxDist[nodes[i].type] || 50;
+      if (d < limit) {
+        connections.push([i, j, d]);
+        connCount++;
+      }
+    }
+  }
+
+  return { nodes, connections };
+}
+
+const { nodes: NODES, connections: CONNECTIONS } = generateBrainMesh();
+
 export default function AboutSection({ theme }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0, over: false });
-  const rotRef = useRef({ y: 0, x: 0.25, vy: 0.005, vx: 0 });
-  const hoveredLobeRef = useRef(null);
-  const [hoveredLobe, setHoveredLobe] = useState(null);
+  const rotRef = useRef({ y: 0.3, x: 0.12 });
+  const targetRotRef = useRef({ y: 0.3, x: 0.12 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
-    const W = 420, H = 420;
+    const W = 520, H = 520;
     canvas.width = W; canvas.height = H;
-    const cx = W/2, cy = H/2;
+    const cx = W / 2, cy = H / 2 + 10;
 
     const [r, g, b] = hexToRgb(theme.accent);
 
-    const handleMouseMove = (e) => {
+    const onMove = (e) => {
       const rect = canvas.getBoundingClientRect();
-      const scaleX = W / rect.width;
-      const scaleY = H / rect.height;
-      mouseRef.current = {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY,
-        over: true,
-      };
+      const mx = (e.clientX - rect.left) * (W / rect.width);
+      const my = (e.clientY - rect.top) * (H / rect.height);
+      mouseRef.current = { x: mx, y: my, over: true };
+      // Target rotation follows cursor
+      targetRotRef.current.y = 0.3 + ((mx - cx) / cx) * 0.7;
+      targetRotRef.current.x = 0.12 + ((my - cy) / cy) * 0.35;
     };
-    const handleMouseLeave = () => { mouseRef.current.over = false; };
-    canvas.addEventListener("mousemove", handleMouseMove);
-    canvas.addEventListener("mouseleave", handleMouseLeave);
+    const onLeave = () => {
+      mouseRef.current.over = false;
+      targetRotRef.current.y = 0.3;
+      targetRotRef.current.x = 0.12;
+    };
 
-    const project = (node, angleY, angleX) => {
-      // Rotate Y
-      const cosY = Math.cos(angleY), sinY = Math.sin(angleY);
-      const rx = node.x * cosY - node.z * sinY;
-      const rz = node.x * sinY + node.z * cosY;
-      // Rotate X (tilt)
-      const cosX = Math.cos(angleX), sinX = Math.sin(angleX);
-      const ry = node.y * cosX - rz * sinX;
-      const rz2 = node.y * sinX + rz * cosX;
-      const fov = 420;
-      const s = fov / (fov + rz2 + 50);
-      return { px: cx + rx*s, py: cy + ry*s, s, depth: rz2 };
+    canvas.addEventListener("mousemove", onMove);
+    canvas.addEventListener("mouseleave", onLeave);
+
+    const project = (node, ry, rx) => {
+      const cosY = Math.cos(ry), sinY = Math.sin(ry);
+      const px0 = node.x * cosY - node.z * sinY;
+      const pz0 = node.x * sinY + node.z * cosY;
+      const cosX = Math.cos(rx), sinX = Math.sin(rx);
+      const py1 = node.y * cosX - pz0 * sinX;
+      const pz1 = node.y * sinX + pz0 * cosX;
+      const fov = 500;
+      const s = fov / (fov + pz1 + 80);
+      return { px: cx + px0 * s, py: cy + py1 * s, s, depth: pz1 };
     };
 
     const draw = (t) => {
       ctx.clearRect(0, 0, W, H);
       const rot = rotRef.current;
+      const target = targetRotRef.current;
 
-      // Auto rotate, slow down on hover
+      // Smooth lerp toward target (auto-rotate when not hovering)
       if (!mouseRef.current.over) {
-        rot.y += rot.vy;
-        rot.x += rot.vx;
-        rot.x = Math.max(-0.5, Math.min(0.5, rot.x));
+        target.y += 0.004;
       }
+      rot.y += (target.y - rot.y) * 0.04;
+      rot.x += (target.x - rot.x) * 0.04;
 
-      // Mouse drag-like rotation
-      if (mouseRef.current.over) {
-        const tx = (mouseRef.current.x - cx) / cx * 0.8;
-        const ty = (mouseRef.current.y - cy) / cy * 0.3;
-        rot.y += (tx * 0.02 - rot.vy) * 0.05;
-        rot.x += (ty * 0.015 - rot.vx) * 0.05;
-      }
-
-      const projected = NODES.map((n, i) => {
+      // Project all nodes
+      const proj = NODES.map((n, i) => {
         const p = project(n, rot.y, rot.x);
-        const pulse = Math.sin(t * 1.8 + n.pulse) * 0.3 + 0.7;
+        const pulse = 0.7 + Math.sin(t * 1.5 + n.pulse) * 0.3;
         return { ...p, n, pulse, i };
       });
 
-      // Detect hovered lobe
-      let closestLobe = null, closestDist = 30;
-      if (mouseRef.current.over) {
-        projected.forEach(p => {
-          const dx = p.px - mouseRef.current.x;
-          const dy = p.py - mouseRef.current.y;
-          const d = Math.sqrt(dx*dx + dy*dy);
-          if (d < closestDist) { closestDist = d; closestLobe = p.n.lobe; }
-        });
-      }
-      if (hoveredLobeRef.current !== closestLobe) {
-        hoveredLobeRef.current = closestLobe;
-        setHoveredLobe(closestLobe !== null ? LOBES[closestLobe].name : null);
-      }
-
-      // Outer atmosphere glow
-      const atmo = ctx.createRadialGradient(cx, cy, 60, cx, cy, 200);
-      atmo.addColorStop(0, `rgba(${r},${g},${b},0)`);
-      atmo.addColorStop(0.6, `rgba(${r},${g},${b},0.04)`);
-      atmo.addColorStop(1, `rgba(${r},${g},${b},0.01)`);
-      ctx.beginPath(); ctx.arc(cx, cy, 200, 0, Math.PI*2);
-      ctx.fillStyle = atmo; ctx.fill();
-
-      // Draw connections back to front
-      const sortedConns = [...CONNECTIONS].sort((a,b) => {
-        const da = (projected[a.i].depth + projected[a.j].depth)/2;
-        const db = (projected[b.i].depth + projected[b.j].depth)/2;
+      // Sort connections back to front
+      const sortedConns = [...CONNECTIONS].sort((a, b) => {
+        const da = (proj[a[0]].depth + proj[a[1]].depth) / 2;
+        const db = (proj[b[0]].depth + proj[b[1]].depth) / 2;
         return da - db;
       });
 
-      sortedConns.forEach(({ i, j, sameLobe }) => {
-        const pi = projected[i], pj = projected[j];
+      // Draw connections
+      sortedConns.forEach(([i, j, dist]) => {
+        const pi = proj[i], pj = proj[j];
         const avgDepth = (pi.depth + pj.depth) / 2;
-        const depthFade = Math.max(0, (160 - Math.abs(avgDepth)) / 160);
-        const lobeHovered = hoveredLobeRef.current !== null &&
-          (NODES[i].lobe === hoveredLobeRef.current || NODES[j].lobe === hoveredLobeRef.current);
-        const baseAlpha = sameLobe ? 0.4 : 0.15;
-        const alpha = depthFade * baseAlpha * (lobeHovered ? 2.5 : 1) * (pi.pulse + pj.pulse) / 2;
+        const depthFade = Math.max(0, (200 - Math.abs(avgDepth)) / 200);
+        const alpha = depthFade * 0.45 * ((pi.pulse + pj.pulse) / 2) * Math.min(pi.s, pj.s);
 
-        const grad = ctx.createLinearGradient(pi.px, pi.py, pj.px, pj.py);
-        grad.addColorStop(0, `rgba(${r},${g},${b},${Math.min(1, alpha * pi.s)})`);
-        grad.addColorStop(1, `rgba(${r},${g},${b},${Math.min(1, alpha * pj.s)})`);
         ctx.beginPath();
         ctx.moveTo(pi.px, pi.py);
         ctx.lineTo(pj.px, pj.py);
+        const grad = ctx.createLinearGradient(pi.px, pi.py, pj.px, pj.py);
+        grad.addColorStop(0, `rgba(${r},${g},${b},${Math.min(0.7, alpha * 1.2)})`);
+        grad.addColorStop(1, `rgba(${r},${g},${b},${Math.min(0.7, alpha * 0.8)})`);
         ctx.strokeStyle = grad;
-        ctx.lineWidth = lobeHovered ? 1.2 : 0.6;
+        ctx.lineWidth = 0.5 + depthFade * 0.4;
         ctx.stroke();
       });
 
-      // Draw nodes sorted back to front
-      [...projected].sort((a,b) => a.depth - b.depth).forEach(p => {
-        const isHoveredLobe = hoveredLobeRef.current === p.n.lobe;
-        const sz = p.n.size * p.s * (isHoveredLobe ? 2.2 : 1.4) * (0.85 + p.pulse * 0.15);
-        const alpha = Math.max(0.15, Math.min(0.95, p.s * 1.2)) * (isHoveredLobe ? 1 : 0.8);
+      // Draw nodes — sorted back to front
+      [...proj].sort((a, b) => a.depth - b.depth).forEach(p => {
+        const depthFade = Math.max(0.1, (200 - Math.abs(p.depth)) / 200);
+        const alpha = depthFade * p.pulse * Math.min(1, p.s * 1.3);
+        const sz = p.n.size * p.s * 1.8 * (0.8 + p.pulse * 0.2);
 
-        // Glow
-        const grd = ctx.createRadialGradient(p.px, p.py, 0, p.px, p.py, sz * 3);
-        grd.addColorStop(0, `rgba(${r},${g},${b},${alpha * 0.6})`);
-        grd.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.15})`);
+        // Outer glow
+        const grd = ctx.createRadialGradient(p.px, p.py, 0, p.px, p.py, sz * 4);
+        grd.addColorStop(0, `rgba(${r},${g},${b},${Math.min(0.8, alpha * 0.7)})`);
+        grd.addColorStop(0.35, `rgba(${r},${g},${b},${Math.min(0.4, alpha * 0.25)})`);
         grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx.beginPath(); ctx.arc(p.px, p.py, sz * 3, 0, Math.PI*2);
+        ctx.beginPath(); ctx.arc(p.px, p.py, sz * 4, 0, Math.PI * 2);
         ctx.fillStyle = grd; ctx.fill();
 
-        // Core
-        ctx.beginPath(); ctx.arc(p.px, p.py, sz, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        // Core node
+        ctx.beginPath(); ctx.arc(p.px, p.py, sz, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r},${g},${b},${Math.min(1, alpha)})`;
         ctx.fill();
 
-        // Highlight
-        if (isHoveredLobe) {
-          ctx.beginPath(); ctx.arc(p.px - sz*0.3, p.py - sz*0.3, sz*0.35, 0, Math.PI*2);
-          ctx.fillStyle = `rgba(255,255,255,0.6)`; ctx.fill();
-        }
+        // Specular highlight
+        ctx.beginPath(); ctx.arc(p.px - sz * 0.3, p.py - sz * 0.3, sz * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${Math.min(0.7, alpha * 0.6)})`;
+        ctx.fill();
       });
 
-      // Lobe label on hover
-      if (hoveredLobeRef.current !== null && mouseRef.current.over) {
-        const lobe = LOBES[hoveredLobeRef.current];
-        const labelProj = project({ x: lobe.cx, y: lobe.cy - 20, z: lobe.cz }, rot.y, rot.x);
-        ctx.font = "600 11px Inter, sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillStyle = `rgba(${r},${g},${b},0.9)`;
-        ctx.fillText(lobe.name + " Lobe", labelProj.px, labelProj.py - 10);
+      // Overall ambient glow
+      const atmo = ctx.createRadialGradient(cx, cy, 60, cx, cy, 230);
+      atmo.addColorStop(0, `rgba(${r},${g},${b},0.06)`);
+      atmo.addColorStop(0.5, `rgba(${r},${g},${b},0.02)`);
+      atmo.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.beginPath(); ctx.arc(cx, cy, 230, 0, Math.PI * 2);
+      ctx.fillStyle = atmo; ctx.fill();
+
+      // Cursor proximity glow
+      if (mouseRef.current.over) {
+        const mx = mouseRef.current.x, my = mouseRef.current.y;
+        const glow = ctx.createRadialGradient(mx, my, 0, mx, my, 80);
+        glow.addColorStop(0, `rgba(${r},${g},${b},0.12)`);
+        glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        ctx.beginPath(); ctx.arc(mx, my, 80, 0, Math.PI * 2);
+        ctx.fillStyle = glow; ctx.fill();
       }
     };
 
-    const animate = (ts) => {
-      draw(ts / 1000);
-      animRef.current = requestAnimationFrame(animate);
-    };
-    animRef.current = requestAnimationFrame(animate);
+    const loop = (ts) => { draw(ts / 1000); animRef.current = requestAnimationFrame(loop); };
+    animRef.current = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(animRef.current);
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mouseleave", handleMouseLeave);
+      canvas.removeEventListener("mousemove", onMove);
+      canvas.removeEventListener("mouseleave", onLeave);
     };
   }, [theme.accent]);
 
@@ -274,13 +277,8 @@ export default function AboutSection({ theme }) {
 
       <div className="about-right">
         <div className="brain-wrap">
-          <canvas ref={canvasRef} className="brain-canvas" title="Hover over brain regions to explore" />
-          <div className="brain-meta">
-            <span className="brain-label" style={{ color: theme.accent + "99" }}>
-              {hoveredLobe ? `${hoveredLobe} Lobe` : "Neural activity model"}
-            </span>
-            <span className="brain-hint">hover to explore regions</span>
-          </div>
+          <canvas ref={canvasRef} className="brain-canvas" />
+          <p className="brain-hint">move cursor over brain to interact</p>
         </div>
       </div>
     </section>
