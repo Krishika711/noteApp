@@ -2,7 +2,7 @@ import { useState } from "react";
 import MoodPicker from "./MoodPicker";
 import "./HeroSection.css";
 
-export default function HeroSection({ theme, mood, setMood, moodThemes, setAuthModal, onGuest }) {
+export default function HeroSection({ theme, mood, setMood, moodThemes, setAuthModal }) {
   const [signInExpanded, setSignInExpanded] = useState(false);
 
   return (
@@ -24,7 +24,7 @@ export default function HeroSection({ theme, mood, setMood, moodThemes, setAuthM
           <button
             className="auth-btn guest"
             style={{ borderColor: theme.accent + "55", color: "#aaa" }}
-            onClick={onGuest}
+            onClick={() => {}}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
