@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./AuthModal.css";
 
-export default function AuthModal({ type, theme, onClose, switchTo }) {
+export default function AuthModal({ type, theme, onClose, switchTo, onSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -82,7 +82,7 @@ export default function AuthModal({ type, theme, onClose, switchTo }) {
             onChange={(e) => setPassword(e.target.value)}
           />
           <button
-            className="modal-submit"
+            className="modal-submit" onClick={onSuccess}
             style={{ background: theme.accent, color: "#0a0a0a" }}
           >
             {isCreate ? "Create Account" : "Sign In"}
